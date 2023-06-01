@@ -2,6 +2,7 @@
 /*
 Plugin Name: Resales Online Plugin
 Description: Fetches data from Resales Online API and stores it as custom post types.
+Author: Mansoor khan
 */
 
 
