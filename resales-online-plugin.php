@@ -3,6 +3,8 @@
 Plugin Name: Resales Online Plugin
 Description: Fetches data from Resales Online API and stores it as custom post types.
 Author: Mansoor khan
+Version: 1.0
+BY: Facebook.com/mansoorkhan95
 */
 
 
@@ -56,7 +58,7 @@ add_action('init', 'create_properties_post_type');
 
 // Step 1: Fetch properties function
 function fetch_properties_from_api() {
-    $api_endpoint = 'https://webapi.resales-online.com/V6/SearchProperties?p1=1014899&p2=9ea89db4d10dfc0c66d91d48ff5967983b6fa745&P_sandbox=true&P_ApiId=38245&P_PageSize=40';
+    $api_endpoint = 'https://webapi.resales-online.com/V6/SearchProperties?p1=1014899&p2=a44a5e577f200bc9ca42a133d467b537f95bf174&P_sandbox=true&P_ApiId=38245&P_PageSize=40';
 
     $response = wp_remote_get($api_endpoint);
 
@@ -75,10 +77,27 @@ function fetch_properties_from_api() {
                 // Property already exists, update the existing property
                 $property_post = $existing_property->ID;
 
-                // Update all post meta fields
-                foreach ($property as $key => $value) {
-                    update_post_meta($property_post, $key, (string) $value);
+               // Update all post meta fields
+            foreach ($property as $key => $value) {
+                update_post_meta($property_post, $key, (string) $value);
+            }
+
+              // Update property features meta field
+        $property_features = $property->PropertyFeatures;
+        if ($property_features) {
+            foreach ($property_features->Category as $category) {
+                $category_type = (string) $category['Type'];
+                $category_values = array();
+
+                foreach ($category->Value as $value) {
+                    $category_values[] = (string) $value;
                 }
+
+                if (!empty($category_values)) {
+                    update_post_meta($property_post, $category_type, $category_values);
+                }
+            }
+        }
 
                 $fetched_count++;
                 continue;
@@ -94,54 +113,42 @@ function fetch_properties_from_api() {
 
             $property_post = wp_insert_post($property_data);
 
-            // Set property meta fields
-            update_post_meta($property_post, 'Reference', (string) $property->Reference);
-            update_post_meta($property_post, 'AgencyRef', (string) $property->AgencyRef);
-            update_post_meta($property_post, 'Country', (string) $property->Country);
-            update_post_meta($property_post, 'Province', (string) $property->Province);
-            update_post_meta($property_post, 'Area', (string) $property->Area);
-            update_post_meta($property_post, 'Location', (string) $property->Location);
-            update_post_meta($property_post, 'Bedrooms', (string) $property->Bedrooms);
-            update_post_meta($property_post, 'Bathrooms', (string) $property->Bathrooms);
-            update_post_meta($property_post, 'Currency', (string) $property->Currency);
-            update_post_meta($property_post, 'Price', (string) $property->Price);
-            update_post_meta($property_post, 'OriginalPrice', (string) $property->OriginalPrice);
-            update_post_meta($property_post, 'Dimensions', (string) $property->Dimensions);
-            update_post_meta($property_post, 'Built', (string) $property->Built);
-            update_post_meta($property_post, 'Terrace', (string) $property->Terrace);
-            update_post_meta($property_post, 'GardenPlot', (string) $property->GardenPlot);
-            update_post_meta($property_post, 'CO2Rated', (string) $property->CO2Rated);
-            update_post_meta($property_post, 'EnergyRated', (string) $property->EnergyRated);
-            update_post_meta($property_post, 'OwnProperty', (string) $property->OwnProperty);
-            update_post_meta($property_post, 'Pool', (string) $property->Pool);
-            update_post_meta($property_post, 'Parking', (string) $property->Parking);
-            update_post_meta($property_post, 'Garden', (string) $property->Garden);
-            update_post_meta($property_post, 'Description', (string) $property->Description);
+            // Define the property meta fields and their values
+            $property_meta = array(
+                'Reference' => (string) $property->Reference,
+                'AgencyRef' => (string) $property->AgencyRef,
+                'Country' => (string) $property->Country,
+                'Province' => (string) $property->Province,
+                'Area' => (string) $property->Area,
+                'Location' => (string) $property->Location,
+                'Bedrooms' => (string) $property->Bedrooms,
+                'Bathrooms' => (string) $property->Bathrooms,
+                'Currency' => (string) $property->Currency,
+                'Price' => (string) $property->Price,
+                'OriginalPrice' => (string) $property->OriginalPrice,
+                'Dimensions' => (string) $property->Dimensions,
+                'Built' => (string) $property->Built,
+                'Terrace' => (string) $property->Terrace,
+                'GardenPlot' => (string) $property->GardenPlot,
+                'CO2Rated' => (string) $property->CO2Rated,
+                'EnergyRated' => (string) $property->EnergyRated,
+                'OwnProperty' => (string) $property->OwnProperty,
+                'Pool' => (string) $property->Pool,
+                'Parking' => (string) $property->Parking,
+                'Garden' => (string) $property->Garden,
+                'Description' => (string) $property->Description,
+                'PicturesCount' => (string) $property->Pictures['Count'],
+                'Type' => (string) $property->PropertyType->Type,
+                'NameType' => (string) $property->PropertyType->NameType,
+                'Subtype1' => (string) $property->PropertyType->Subtype1
+            );
             
-            // Store the PropertyFeatures XML as a string
-            $property_type_xml = $property->PropertyType->asXML();
-            update_post_meta($property_post, 'PropertyType', $property_type_xml);
-            
- 
-            
-            // Store the count attribute of the Pictures element
-            $pictures_count = (string) $property->Pictures['Count'];
-            update_post_meta($property_post, 'PicturesCount', $pictures_count);
-
-          
-            
-            // Store the Subtype1 value
-            $subtype1 = (string) $property->PropertyType->Subtype1;
-            update_post_meta($property_post, 'Subtype1', $subtype1);
-            
-
-            // Set property meta fields
-            foreach ($property as $key => $value) {
-                update_post_meta($property_post, $key, (string) $value);
-                
+            // Set the property meta fields in one line
+            foreach ($property_meta as $meta_key => $meta_value) {
+                update_post_meta($property_post, $meta_key, $meta_value);
             }
-
-            // Add more meta fields as needed
+            
+            
 
             // Set property description as post content
             wp_update_post(
@@ -167,6 +174,9 @@ function fetch_properties_from_api() {
         echo '<p>' . $fetched_count . ' properties fetched and updated successfully!</p>';
     }
 }
+
+
+
 
 // Step 2: Add fetch and delete buttons to the custom post type menu
 add_action('admin_menu', 'add_fetch_and_delete_buttons_to_menu');
@@ -299,3 +309,31 @@ function property_title_shortcode($atts) {
 }
 
 add_shortcode('property_title', 'property_title_shortcode');
+
+
+function property_features_shortcode($atts) {
+    $property_id = get_the_ID();
+    $property_features = get_post_meta($property_id, 'PropertyFeatures', true);
+
+    $output = '';
+
+    if ($property_features) {
+        $property_features = simplexml_load_string($property_features);
+
+        foreach ($property_features->Category as $category) {
+            $category_type = (string) $category['Type'];
+            $output .= '<h4>' . ucfirst($category_type) . '</h4>';
+            $output .= '<ul>';
+
+            foreach ($category->Value as $value) {
+                $output .= '<li>' . (string) $value . '</li>';
+            }
+
+            $output .= '</ul>';
+        }
+    }
+
+    return $output;
+}
+
+add_shortcode('property_features', 'property_features_shortcode');
