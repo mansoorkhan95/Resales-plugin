@@ -54,9 +54,6 @@ function create_properties_post_type() {
 add_action('init', 'create_properties_post_type');
 
 
-
-
-// Step 1: Fetch properties function
 function fetch_properties_from_api() {
     $api_endpoint = 'https://webapi.resales-online.com/V6/SearchProperties?p1=1014899&p2=a44a5e577f200bc9ca42a133d467b537f95bf174&P_sandbox=true&P_ApiId=38245&P_PageSize=40';
 
@@ -77,45 +74,40 @@ function fetch_properties_from_api() {
                 // Property already exists, update the existing property
                 $property_post = $existing_property->ID;
 
-               // Update all post meta fields
-            foreach ($property as $key => $value) {
-                update_post_meta($property_post, $key, (string) $value);
-            }
-
-              // Update property features meta field
-        $property_features = $property->PropertyFeatures;
-        if ($property_features) {
-            foreach ($property_features->Category as $category) {
-                $category_type = (string) $category['Type'];
-                $category_values = array();
-
-                foreach ($category->Value as $value) {
-                    $category_values[] = (string) $value;
+                // Update all post meta fields
+                foreach ($property as $key => $value) {
+                    update_post_meta($property_post, $key, (string) $value);
                 }
 
-                if (!empty($category_values)) {
-                    update_post_meta($property_post, $category_type, $category_values);
+                // Update property features meta field
+                $property_features = $property->PropertyFeatures;
+                if ($property_features) {
+                    update_post_meta($property_post, 'PropertyFeatures', $property_features->asXML());
                 }
-            }
-        }
+
+                // Update image URLs
+                $image_urls = array();
+                $pictures = $property->Pictures;
+                foreach ($pictures->Picture as $picture) {
+                    $image_urls[] = (string) $picture->PictureURL;
+                }
+                update_post_meta($property_post, 'image_urls', $image_urls);
 
                 $fetched_count++;
-                continue;
-            }
+            } else {
+                // Property doesn't exist, create a new post
+                $post_title = $property_reference;
+                $property_data = array(
+                    'post_title' => $post_title,
+                    'post_status' => 'publish',
+                    'post_type' => 'property',
+                );
 
-            // Extract property data from XML and save as new post
-            $post_title = $property_reference ;
-            $property_data = array(
-                'post_title' => $post_title,
-                'post_status' => 'publish',
-                'post_type' => 'property',
-            );
+                $property_post = wp_insert_post($property_data);
 
-            $property_post = wp_insert_post($property_data);
-
-            // Define the property meta fields and their values
-            $property_meta = array(
-                'Reference' => (string) $property->Reference,
+                // Define the property meta fields and their values
+                $property_meta = array(
+                    'Reference' => (string) $property->Reference,
                 'AgencyRef' => (string) $property->AgencyRef,
                 'Country' => (string) $property->Country,
                 'Province' => (string) $property->Province,
@@ -140,40 +132,32 @@ function fetch_properties_from_api() {
                 'PicturesCount' => (string) $property->Pictures['Count'],
                 'Type' => (string) $property->PropertyType->Type,
                 'NameType' => (string) $property->PropertyType->NameType,
-                'Subtype1' => (string) $property->PropertyType->Subtype1
-            );
-            
-            // Set the property meta fields in one line
-            foreach ($property_meta as $meta_key => $meta_value) {
-                update_post_meta($property_post, $meta_key, $meta_value);
+                'Subtype1' => (string) $property->PropertyType->Subtype1,
+                    'PropertyFeatures' => $property->PropertyFeatures->asXML(),
+                );
+
+                // Save the property meta fields
+                foreach ($property_meta as $key => $value) {
+                    update_post_meta($property_post, $key, $value);
+                }
+
+                // Save image URLs
+                $image_urls = array();
+                $pictures = $property->Pictures;
+                foreach ($pictures->Picture as $picture) {
+                    $image_urls[] = (string) $picture->PictureURL;
+                }
+                update_post_meta($property_post, 'image_urls', $image_urls);
+
+                $fetched_count++;
             }
-            
-            
-
-            // Set property description as post content
-            wp_update_post(
-                array(
-                    'ID' => $property_post,
-                    'post_content' => (string) $property->Description,
-                )
-            );
-
-            // Save the image URLs
-            $image_urls = array();
-            $pictures = $property->Pictures;
-            foreach ($pictures->Picture as $picture) {
-                $image_urls[] = (string) $picture->PictureURL;
-            }
-
-            // Save the image URLs as post meta
-            update_post_meta($property_post, 'image_urls', $image_urls);
-
-            $fetched_count++;
         }
 
         echo '<p>' . $fetched_count . ' properties fetched and updated successfully!</p>';
     }
 }
+
+
 
 
 
@@ -320,16 +304,28 @@ function property_features_shortcode($atts) {
     if ($property_features) {
         $property_features = simplexml_load_string($property_features);
 
-        foreach ($property_features->Category as $category) {
-            $category_type = (string) $category['Type'];
-            $output .= '<h4>' . ucfirst($category_type) . '</h4>';
-            $output .= '<ul>';
+        $categories = $property_features->Category;
 
-            foreach ($category->Value as $value) {
-                $output .= '<li>' . (string) $value . '</li>';
+        if ($categories) {
+            $output .= '<table class="property-features">';
+            $output .= '<tbody>';
+
+            foreach ($categories as $category) {
+                $category_type = (string) $category['Type'];
+                $output .= '<tr>';
+                $output .= '<th>' . ucfirst($category_type) . '</th>';
+                $output .= '<td>';
+
+                foreach ($category->Value as $value) {
+                    $output .= '<span>' . (string) $value . '</span>';
+                }
+
+                $output .= '</td>';
+                $output .= '</tr>';
             }
 
-            $output .= '</ul>';
+            $output .= '</tbody>';
+            $output .= '</table>';
         }
     }
 

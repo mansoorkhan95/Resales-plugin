@@ -66,3 +66,27 @@
     opacity: 0.7;
   }
   
+
+
+/* Property Features */
+.property-features {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.property-features th,
+.property-features td {
+  padding: 10px;
+  border: 1px solid #ccc;
+}
+
+.property-features th {
+  background-color: #f0f0f0;
+  text-align: left;
+  width: 30%;
+}
+
+.property-features span {
+  display: block;
+  margin-bottom: 4px;
+}
